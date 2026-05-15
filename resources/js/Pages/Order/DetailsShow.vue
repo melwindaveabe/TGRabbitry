@@ -1,130 +1,171 @@
 <template>
     <AuthLayout>
-        <el-card class="mt-4" shadow="always">
-            <div class="flex justify-between gap-4">
-                <div class="text-lg font-semibold">
-                    Client Name: {{ order.user.name }}
-                </div>
-
-                <Link :href="route('order.invoice', order.id)">
-                    <el-button type="success">Create Invoice</el-button>
-                </Link>
+        <!-- Page header -->
+        <div class="flex items-center justify-between flex-wrap gap-3 mb-5">
+            <div>
+                <h1 class="text-xl font-bold text-gray-800">Order Details</h1>
+                <p class="text-sm text-gray-500 mt-0.5">Manage order #{{ order.id }}</p>
             </div>
-            <div class="text-lg mb-5">
-                Delivery Address: {{ order.address }}
-            </div>
+            <Link :href="route('order.invoice', order.id)">
+                <button class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
+                    <i class="fas fa-file-invoice text-xs"></i> Create Invoice
+                </button>
+            </Link>
+        </div>
 
-            <el-table
-                :data="order.details"
-                row-key="id"
-                header-row-class-name="thead-light"
-            >
-                <el-table-column
-                    min-width="50px"
-                    label="Qty"
-                >
-                    <template v-slot="{ row }">
-                        {{row.qty}}
-                    </template>
-                </el-table-column>
+        <!-- Order card -->
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 
-                <el-table-column
-                    min-width="220px"
-                    label="Product"
-                >
-                    <template v-slot="{ row }">
-                        {{row.product.name}}
-                    </template>
-                </el-table-column>
-
-                <el-table-column 
-                    min-width="70px" 
-                    label="Price"
-                >
-                    <template v-slot="{ row }">
-                        {{ row.product.price }}
-                    </template>
-                </el-table-column>
-
-                <el-table-column 
-                    min-width="100px" 
-                    label="Total"
-                >
-                    <template v-slot="{ row }">
-                        {{ getTotal(row) }}
-                    </template>
-                </el-table-column>
-            </el-table>
-
-            <div class="flex justify-between gap-2 mt-5">
-                <div class="w-[49%]">
+            <!-- Header info -->
+            <div class="bg-gradient-to-r from-green-600 to-green-500 px-5 py-4">
+                <div class="flex items-center justify-between flex-wrap gap-3">
                     <div>
-                        Payment Method: {{ order.payment_method }}
+                        <p class="text-white/70 text-xs uppercase tracking-wide font-medium">Customer</p>
+                        <p class="text-white font-semibold text-base mt-0.5">{{ order.user.name }}</p>
                     </div>
-                    <div class="mt-3">
-                        Payment Status: 
-                        <el-tag v-if="paid" type="success">Yes</el-tag>
-                        <el-tag v-else type="danger">No</el-tag>
+                    <div class="flex gap-2 flex-wrap">
+                        <span :class="`text-xs font-semibold px-3 py-1 rounded-full ${paid ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`">
+                            <i :class="paid ? 'fas fa-check' : 'fas fa-clock'" class="mr-1 text-[10px]"></i>
+                            {{ paid ? 'Paid' : 'Unpaid' }}
+                        </span>
+                        <span :class="`text-xs font-semibold px-3 py-1 rounded-full ${getStatusBadge(status)}`">
+                            <i :class="getStatusIcon(status)" class="mr-1 text-[10px]"></i>
+                            {{ status }}
+                        </span>
                     </div>
                 </div>
-                <div class="w-[49%]">
-                    <div class="text-right">
-                        Order Status: 
-                        <el-tag :type="getTagType(status)">{{ status }}</el-tag>
+                <p class="text-white/80 text-sm mt-2 flex items-center gap-1.5">
+                    <i class="fas fa-location-dot text-xs"></i>
+                    {{ order.address }}
+                </p>
+            </div>
+
+            <!-- Desktop table -->
+            <div class="hidden md:block">
+                <el-table :data="order.details" row-key="id" header-row-class-name="thead-light">
+                    <el-table-column min-width="60px" label="Qty">
+                        <template v-slot="{ row }">
+                            <span class="font-semibold text-gray-700">{{ row.qty }}</span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column min-width="180px" label="Product">
+                        <template v-slot="{ row }">
+                            <span class="text-sm font-medium text-gray-800">{{ row.product.name }}</span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column min-width="100px" label="Price">
+                        <template v-slot="{ row }">
+                            <span class="text-sm text-gray-600">₱{{ Number(row.product.price).toLocaleString() }}</span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column min-width="110px" label="Total">
+                        <template v-slot="{ row }">
+                            <span class="font-bold text-green-600">₱{{ getTotal(row).toLocaleString() }}</span>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </div>
+
+            <!-- Mobile cards -->
+            <div class="md:hidden divide-y divide-gray-50">
+                <div
+                    v-for="row in order.details"
+                    :key="row.id"
+                    class="flex items-center gap-4 px-5 py-4"
+                >
+                    <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-gray-800 text-sm truncate">{{ row.product.name }}</p>
+                        <p class="text-xs text-gray-400 mt-0.5">
+                            ₱{{ Number(row.product.price).toLocaleString() }} × {{ row.qty }}
+                        </p>
                     </div>
-
-                    <el-button 
-                        v-if="!paid"
-                        type="success" 
-                        class="mt-2" 
-                        @click="onMarkAsPaid"
-                    >Mark as Paid</el-button>
-
-                    <el-button 
-                        type="primary" 
-                        :class="'mt-2' + (paid ? ' w-full' : '')" 
-                        @click="showModal = true"
-                    >Update Status</el-button>
+                    <div class="text-right flex-shrink-0">
+                        <p class="font-bold text-green-600 text-sm">₱{{ getTotal(row).toLocaleString() }}</p>
+                    </div>
                 </div>
             </div>
-        </el-card>
+
+            <!-- Footer actions -->
+            <div class="bg-gray-50 border-t border-gray-100 px-5 py-4">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div class="text-sm text-gray-600">
+                        <p class="flex items-center gap-2">
+                            <span class="text-gray-500">Payment Method:</span>
+                            <span class="font-semibold text-gray-800">{{ order.payment_method }}</span>
+                        </p>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button
+                            v-if="!paid"
+                            @click="onMarkAsPaid"
+                            class="flex items-center gap-2 px-4 py-2 bg-green-50 hover:bg-green-100 text-green-600 text-sm font-medium rounded-xl border border-green-200 transition-colors"
+                        >
+                            <i class="fas fa-check text-xs"></i> Mark as Paid
+                        </button>
+                        <button
+                            @click="showModal = true"
+                            class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
+                        >
+                            <i class="fas fa-edit text-xs"></i> Update Status
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </AuthLayout>
 
-    <el-dialog 
-        :width="isPC() ? '50%' : '70%'" 
-        v-model="showModal" 
-        title="Update Status"
+    <!-- Update status dialog -->
+    <el-dialog
+        width="min(420px, 95%)"
+        v-model="showModal"
         :close-on-click-modal="false"
     >
-
-        <img loading="lazy" :src="`${$page.props.base_img_path}website/${$page.props.setting.logo}`" class="w-[70%] lg:w-[300px]" alt="">
-
+        <template #header>
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
+                    <i class="fas fa-edit text-blue-600 text-sm"></i>
+                </div>
+                <div>
+                    <h2 class="text-base font-bold text-gray-900">Update Order Status</h2>
+                    <p class="text-xs text-gray-400">Change the current order status</p>
+                </div>
+            </div>
+        </template>
 
         <div>
-            <label for="">Status <span class="text-red-600">*</span></label>
-            <el-select 
-                v-model="status" 
-                filterable 
-                placeholder="Select status"
-            >
-                <template v-for="st in ['Pending', 'Packed', 'Out for Delivery', 'Delivered', 'Cancelled']">
-                    <el-option :label="st" :value="st" />
-                </template>
+            <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+                Status <span class="text-red-500">*</span>
+            </label>
+            <el-select class="w-full" v-model="status" filterable placeholder="Select status">
+                <el-option
+                    v-for="st in ['Pending', 'Packed', 'Out for Delivery', 'Delivered', 'Cancelled']"
+                    :key="st"
+                    :label="st"
+                    :value="st"
+                >
+                    <span class="flex items-center gap-2">
+                        <i :class="getStatusIcon(st)" class="text-xs"></i>
+                        {{ st }}
+                    </span>
+                </el-option>
             </el-select>
         </div>
 
         <template #footer>
-            <span class="flex justify-end">
-                <el-button 
-                    type="warning" 
-                    @click="onCancel" 
-                    plain
-                >Cancel</el-button>
-                <el-button 
-                    type="primary" 
+            <div class="flex justify-end gap-2">
+                <button
+                    @click="onCancel"
+                    class="px-5 py-2 rounded-xl text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                >
+                    Cancel
+                </button>
+                <button
                     @click="onSubmit"
-                >Update</el-button>
-            </span>
+                    class="px-5 py-2 rounded-xl text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                    <i class="fas fa-check text-xs"></i> Update
+                </button>
+            </div>
         </template>
     </el-dialog>
 </template>
@@ -133,74 +174,83 @@
 import AuthLayout from '@/Layouts/AuthLayout.vue';
 import { ref } from 'vue';
 import axios from 'axios';
-import {
-    ElMessage,
-    ElMessageBox,
-} from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { Link } from '@inertiajs/vue3';
 
-    const {order} = defineProps(['order'])
+const { order } = defineProps(['order']);
 
-    const showModal = ref(false)
-    const status = ref(order.status)
-    const paid = ref(order.paid)
+const showModal = ref(false);
+const status = ref(order.status);
+const paid = ref(order.paid);
 
-    function getTotal(d){
-        return parseInt(d.qty) * parseInt(d.product.price)
-    }
+function getTotal(d) {
+    return parseInt(d.qty) * parseInt(d.product.price);
+}
 
-    function onCancel(){
-        status.value = order.status
-        showModal.value = false
-    }
+function onCancel() {
+    status.value = order.status;
+    showModal.value = false;
+}
 
-    function isPC(){
-        return window.innerWidth > 960
-    }
+function getStatusBadge(st) {
+    if (st === 'Pending') return 'bg-yellow-100 text-yellow-700';
+    if (st === 'Packed') return 'bg-blue-100 text-blue-700';
+    if (st === 'Out for Delivery') return 'bg-purple-100 text-purple-700';
+    if (st === 'Delivered') return 'bg-green-100 text-green-700';
+    return 'bg-red-100 text-red-600';
+}
 
-    function getTagType(status){
-        if (status == 'Pending') return 'warning'
-        if (status == 'Packed') return 'primary'
-        if (status == 'Out for Delivery') return 'info'
-        if (status == 'Delivered') return 'success'
-        return 'danger'
-    }
+function getStatusIcon(st) {
+    if (st === 'Pending') return 'fas fa-clock';
+    if (st === 'Packed') return 'fas fa-box';
+    if (st === 'Out for Delivery') return 'fas fa-truck';
+    if (st === 'Delivered') return 'fas fa-check-circle';
+    return 'fas fa-times-circle';
+}
 
-    function onMarkAsPaid(){
-        ElMessageBox.confirm(
-            'Are you sure you want to this as paid?',
-            'Warning',
-            {
-                confirmButtonText: 'OK',
-                cancelButtonText: 'Cancel',
-                type: 'warning',
-            }
-        )
-            .then(async () => {
-                await axios.post(route('order.mark-as-paid', order.id))
-                .then(() => {
-                    paid.value = 1
-                    order.paid = 1
-                    ElMessage({
-                        type: 'success',
-                        message: 'Marked as paid successfully.',
-                    })
-                })
-            })
-            .catch(() => {})
-    }
+function getTagType(st) {
+    if (st === 'Pending') return 'warning';
+    if (st === 'Packed') return 'primary';
+    if (st === 'Out for Delivery') return 'info';
+    if (st === 'Delivered') return 'success';
+    return 'danger';
+}
 
-    function onSubmit(){
-        axios.post(route('order.update-status', order.id), {status: status.value})
+function onMarkAsPaid() {
+    ElMessageBox.confirm(
+        'Are you sure you want to mark this order as paid?',
+        'Confirm Payment',
+        {
+            confirmButtonText: 'Yes, Mark as Paid',
+            cancelButtonText: 'Cancel',
+            type: 'warning',
+        }
+    )
+    .then(async () => {
+        await axios.post(route('order.mark-as-paid', order.id))
             .then(() => {
-                order.status = status.value
-                showModal.value = false
-                    ElMessage({
-                        type: 'success',
-                        message: 'Updated status successfully.',
-                    })
-            })
-    }
+                paid.value = 1;
+                order.paid = 1;
+                ElMessage({ type: 'success', message: 'Marked as paid successfully.' });
+            });
+    })
+    .catch(() => {});
+}
 
-    
+function onSubmit() {
+    axios.post(route('order.update-status', order.id), { status: status.value })
+        .then(() => {
+            order.status = status.value;
+            showModal.value = false;
+            ElMessage({ type: 'success', message: 'Status updated successfully.' });
+        });
+}
 </script>
+
+<style scoped>
+:deep(.el-dialog) { border-radius: 1rem; }
+:deep(.el-dialog__header) { padding: 20px 20px 12px; border-bottom: 1px solid #f3f4f6; margin-right: 0; }
+:deep(.el-dialog__body) { padding: 20px; }
+:deep(.el-dialog__footer) { padding: 12px 20px 20px; border-top: 1px solid #f3f4f6; }
+:deep(.el-select) { width: 100%; }
+</style>

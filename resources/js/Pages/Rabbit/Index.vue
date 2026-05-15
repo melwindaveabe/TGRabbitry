@@ -1,382 +1,249 @@
 <template>
     <AuthLayout>
-        <div class="flex justify-between flex-wrap">
-            <div class="text-lg font-semibold">Rabbitry Management</div>
-
-        </div>
-        
-        <div class="flex justify-between items-center gap-5 flex-wrap">
-            <el-input
-                v-model="pagination.rfid"
-                @keyup.enter="fetchData"
-                placeholder="Enter rfid here"
-                class="h-fit flex-1 min-w-32"
-                type="text"
-                clearable
-            />
-            
-            <button 
-                class="py-2 px-3 w-fit rounded-sm bg-green-500 text-white"
+        <!-- Page header -->
+        <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
+            <div>
+                <h1 class="text-xl font-bold text-gray-800">Rabbitry Management</h1>
+                <p class="text-sm text-gray-500 mt-0.5">Track and manage all your rabbits</p>
+            </div>
+            <button
                 @click="onNew"
+                class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
             >
-                <i class="fas fa-plus"></i>
-                Create
+                <i class="fas fa-plus text-xs"></i> Add Rabbit
             </button>
         </div>
 
-        <el-card class="mt-4" shadow="always">
-            <div class=" pb-2">
-                <el-table
-                    :data="data.value"
-                    row-key="id"
-                    header-row-class-name="thead-light"
-                >
+        <!-- Search bar -->
+        <div class="mb-4">
+            <el-input
+                v-model="pagination.rfid"
+                @keyup.enter="fetchData"
+                placeholder="Search by RFID..."
+                type="text"
+                clearable
+            >
+                <template #prefix><i class="fas fa-search text-gray-400 text-xs"></i></template>
+            </el-input>
+        </div>
 
-                    <el-table-column 
-                        label="Image"
-                        min-width="100px" 
-                    >
-                        <template v-slot="{ row }">
-                            <img 
-                                loading="lazy" 
-                                class="w-full aspect-[1/1] object-center object-cover transition duration-100 transform hover:scale-110" 
-                                :src="$page.props.base_img_path + row.images"
-                                alt=""
-                            >
-                        </template>
-                    </el-table-column>
-
-
-                    <el-table-column 
-                        min-width="100px" 
-                        label="Name"
-                    >
-                        <template v-slot="{ row }">
-                            {{row.name}}
-                        </template>
-                    </el-table-column>
-
-                    <el-table-column
-                        min-width="100px"
-                        label="Breed"
-                    >
-                        <template v-slot="{ row }">
-                            {{row.product.name}}
-                        </template>
-                    </el-table-column>
-
-                    <el-table-column 
-                        width="75px" 
-                        label="Gender"
-                    >
-                        <template v-slot="{ row }">
-                            {{row.gender}}
-                        </template>
-                    </el-table-column>
-
-                    <el-table-column 
-                        width="100px" 
-                        label="Age"
-                    >
+        <!-- Desktop table -->
+        <div class="hidden md:block bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <el-table :data="data.value" row-key="id" header-row-class-name="thead-light">
+                <el-table-column label="Image" min-width="80px">
                     <template v-slot="{ row }">
-                        {{ row.birth ? calculateAge(row.birth) : 'Unknown' }}
-                        </template>
-                    </el-table-column>
+                        <img loading="lazy" class="w-12 h-12 rounded-xl object-cover"
+                            :src="$page.props.base_img_path + row.images" alt="">
+                    </template>
+                </el-table-column>
+                <el-table-column min-width="100px" label="Name">
+                    <template v-slot="{ row }"><span class="font-medium text-sm text-gray-800">{{ row.name }}</span></template>
+                </el-table-column>
+                <el-table-column min-width="110px" label="Breed">
+                    <template v-slot="{ row }"><span class="text-sm text-gray-600">{{ row.product.name }}</span></template>
+                </el-table-column>
+                <el-table-column width="75px" label="Gender">
+                    <template v-slot="{ row }">
+                        <span :class="`text-xs font-semibold px-2 py-0.5 rounded-full ${row.gender === 'Buck' ? 'bg-blue-100 text-blue-700' : row.gender === 'Doe' ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-600'}`">
+                            {{ row.gender }}
+                        </span>
+                    </template>
+                </el-table-column>
+                <el-table-column width="110px" label="Age">
+                    <template v-slot="{ row }"><span class="text-sm text-gray-600">{{ row.birth ? calculateAge(row.birth) : '—' }}</span></template>
+                </el-table-column>
+                <el-table-column min-width="90px" label="Weight">
+                    <template v-slot="{ row }"><span class="text-sm font-medium text-gray-700">{{ row.latest_weight?.weight ?? 0 }}kg</span></template>
+                </el-table-column>
+                <el-table-column min-width="110px" label="Disease">
+                    <template v-slot="{ row }"><span class="text-sm text-gray-500">{{ row.illness?.illness ?? '—' }}</span></template>
+                </el-table-column>
+                <el-table-column min-width="100px" label="Status">
+                    <template v-slot="{ row }">
+                        <span :class="`text-xs font-semibold px-2.5 py-1 rounded-full ${getStatusClass(row.status)}`">{{ row.status }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column width="100px" label="Action" fixed="right">
+                    <template v-slot="{ row }">
+                        <div class="flex gap-1">
+                            <button @click="onEdit(row)" class="size-8 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition-colors">
+                                <i class="fas fa-pencil text-xs"></i>
+                            </button>
+                            <button @click="onDelete(row.id)" class="size-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors">
+                                <i class="fas fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    </template>
+                </el-table-column>
+            </el-table>
+            <div class="flex justify-end px-4 py-3 border-t border-gray-100">
+                <el-pagination
+                    v-model:currentPage="pagination.page"
+                    v-model:page-size="pagination.page_size"
+                    :page-sizes="[5, 10, 50, 100]"
+                    background layout="total, sizes, prev, pager, next"
+                    :total="pagination_total"
+                    @size-change="fetchData" @current-change="fetchData"
+                />
+            </div>
+        </div>
 
-                    <el-table-column 
-                        min-width="100px" 
-                        label="Weight"
-                    >
-                        <template v-slot="{ row }">
-                            {{row.latest_weight?.weight ?? 0}}kg
-                        </template>
-                    </el-table-column>
-
-                    <el-table-column 
-                        min-width="100px" 
-                        label="Disease"
-                    >
-                        <template v-slot="{ row }">
-                            {{row.illness?.illness}}
-                            <!-- {{getLastIllness(row.illness)}} -->
-                        </template>
-                    </el-table-column>
-
-                    <el-table-column 
-                        width="55px" 
-                        label="Sold"
-                    >
-                        <template v-slot="{ row }">
-                            {{row.sold ==1 ? 'Yes' : 'No'}}
-                        </template>
-                    </el-table-column>
-
-                    <el-table-column 
-                        min-width="100px" 
-                        label="Status"
-                    >
-                        <template v-slot="{ row }">
-                            <el-tag :type="getStatusTag(row.status)">
-                                {{row.status}}
-                            </el-tag>
-                        </template>
-                    </el-table-column>
-
-                    <el-table-column 
-                        width="107px" 
-                        label="ACTION" 
-                        fixed="right">
-                        <template v-slot="{ row }">
-                            <el-tooltip
-                                class="box-item"
-                                effect="dark"
-                                content="Edit"
-                                placement="top"
-                            >
-                                <el-button
-                                    type="primary"
-                                    size="small"
-                                    @click="onEdit(row)"
-                                >
-                                    <i class="fas fa-pencil"></i>
-                                </el-button>
-                            </el-tooltip>
-                            <el-tooltip
-                                class="box-item"
-                                effect="dark"
-                                content="Delete"
-                                placement="top-start"
-                            >
-                                <el-button
-                                    type="danger"
-                                    size="small"
-                                    @click="onDelete(row.id)"
-                                >
-                                    <i class="fas fa-trash"></i>
-                                </el-button>
-                            </el-tooltip>
-                        </template>
-                    </el-table-column>
-                </el-table>
-
-                <div class="flex justify-end pt-2">
-                    <el-pagination
-                        v-model:currentPage="pagination.page"
-                        v-model:page-size="pagination.page_size"
-                        :page-sizes="[5, 10, 50, 100]"
-                        background
-                        layout="total, sizes, prev, pager, next"
-                        :total="pagination_total"
-                        @size-change="fetchData"
-                        @current-change="fetchData"
-                    />
+        <!-- Mobile cards -->
+        <div class="md:hidden space-y-3">
+            <div
+                v-for="row in data.value"
+                :key="row.id"
+                class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4"
+            >
+                <div class="flex items-start gap-3 mb-3">
+                    <img loading="lazy" class="w-16 h-16 rounded-xl object-cover flex-shrink-0"
+                        :src="$page.props.base_img_path + row.images" alt="">
+                    <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-gray-800 text-sm">{{ row.name }}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">{{ row.product.name }}</p>
+                        <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                            <span :class="`text-xs font-semibold px-2 py-0.5 rounded-full ${row.gender === 'Buck' ? 'bg-blue-100 text-blue-700' : row.gender === 'Doe' ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-600'}`">
+                                {{ row.gender }}
+                            </span>
+                            <span :class="`text-xs font-semibold px-2 py-0.5 rounded-full ${getStatusClass(row.status)}`">{{ row.status }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-center mb-3">
+                    <div class="bg-gray-50 rounded-xl py-2">
+                        <p class="text-xs text-gray-400">Age</p>
+                        <p class="text-xs font-semibold text-gray-700 mt-0.5">{{ row.birth ? calculateAge(row.birth) : '—' }}</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl py-2">
+                        <p class="text-xs text-gray-400">Weight</p>
+                        <p class="text-xs font-semibold text-gray-700 mt-0.5">{{ row.latest_weight?.weight ?? 0 }}kg</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl py-2">
+                        <p class="text-xs text-gray-400">Disease</p>
+                        <p class="text-xs font-semibold text-gray-700 mt-0.5 truncate px-1">{{ row.illness?.illness ?? '—' }}</p>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button @click="onEdit(row)" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-medium transition-colors">
+                        <i class="fas fa-pencil text-[10px]"></i> Edit
+                    </button>
+                    <button @click="onDelete(row.id)" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 text-xs font-medium transition-colors">
+                        <i class="fas fa-trash text-[10px]"></i> Delete
+                    </button>
                 </div>
             </div>
-        </el-card>
+            <div class="flex justify-center pt-2">
+                <el-pagination
+                    v-model:currentPage="pagination.page"
+                    v-model:page-size="pagination.page_size"
+                    background layout="prev, pager, next"
+                    :total="pagination_total"
+                    @current-change="fetchData" small
+                />
+            </div>
+        </div>
     </AuthLayout>
 
-    <el-dialog 
-        :width="isPC() ? '50%' : '80%'" 
-        v-model="showModal" 
-        :title="(form_data.id ? 'Update' : 'New') + ' Rabbit'"
+    <!-- Rabbit form dialog -->
+    <el-dialog
+        width="min(540px, 95%)"
+        v-model="showModal"
         :close-on-click-modal="false"
     >
-
-        <img loading="lazy" :src="`${$page.props.base_img_path}website/${$page.props.setting.logo}`" class="w-[70%] lg:w-[300px]" alt="">
-
-        <div>
-            <label for="">Status </label>
-            <el-select v-model="form_data.status" placeholder="Select status">
-                <el-option value="For Breeding" label="For Breeding" />
-                <el-option value="For Bundle" label="For Bundle" />
-                <el-option value="For Sale" label="For Sale" />
-                <el-option value="For Resting" label="For Resting" />
-                <el-option value="Died" label="Died" />
-                <el-option value="Kits" label="Kits" />
-            </el-select>
-            <span
-                v-if="form_errors.value.status"
-                class="text-red-600"
-            >{{form_errors.value.status[0]}}</span>
-        </div>
-
-        <div class="mt-2" >
-            <label for="">Rabbit Breed </label>
-            <el-select 
-                v-model="form_data.breed" 
-                placeholder="Select rabbit breed" 
-                filterable
-            >
-                <el-option v-for="v in [
-                    'Californian',
-                    'Lion Head',
-                    'New Zealand',
-                    'Teddy Rabbit'
-                ]" :value="v" :label="v" />
-            </el-select>
-        </div>
-        <!-- <div class="mt-2" >
-            <label for="">Rabbit Breed </label>
-            <el-select 
-                v-model="form_data.product_id" 
-                placeholder="Select rabbit breed" 
-                filterable
-            >
-                <el-option v-for="v in data.rabbits" :value="v.id" :label="v.name" />
-            </el-select>
-        </div> -->
-
-        <div class="mt-2">
-            <label for="">RFID<span class="text-red-600">*</span> </label>
-            <el-input
-                v-model="form_data.rfid"
-                placeholder="Enter rfid"
-                type="text"
-                clearable
-            />
-            <span
-                v-if="form_errors.value.rfid"
-                class="text-red-600"
-            >{{form_errors.value.rfid[0]}}</span>
-        </div>
-
-        <div class="mt-2">
-            <label for="">Name<span class="text-red-600">*</span> </label>
-            <el-input
-                v-model="form_data.name"
-                placeholder="Enter name"
-                type="text"
-                clearable
-            />
-            <span
-                v-if="form_errors.value.name"
-                class="text-red-600"
-            >{{form_errors.value.name[0]}}</span>
-        </div>
-
-        <div class="mt-2">
-            <label for="">Gender </label>
-            <el-select 
-                v-model="form_data.gender" 
-                placeholder="Select gender"
-            >
-                <el-option value="Buck" label="Buck" />
-                <el-option value="Doe" label="Doe" />
-                <el-option value="Unknown" label="Unknown" />
-            </el-select>
-            <span
-                v-if="form_errors.value.gender"
-                class="text-red-600"
-            >{{form_errors.value.gender[0]}}</span>
-        </div>
-
-        <div class="w-full mt-2"  >
-            <label for="">Birthday</label> <br>
-            <el-date-picker
-                v-model="form_data.birth"
-                placeholder="Select birthday"
-                type="date"
-                clearable
-                style="width: 100%;"
-            />
-            <span
-                v-if="form_errors.value.birth"
-                class="text-red-600"
-            >{{form_errors.value.birth[0]}}</span>
-        </div> 
-
-        <div class="mt-2">
-            <label for="">Note</label>
-            <el-input
-                v-model="form_data.note"
-                placeholder="Enter note"
-                type="textarea"
-                rowspan="2"
-                clearable
-            />
-           
-        </div>
-
-        <div class="mt-2 flex gap-2">
-            <div class="flex-1">
-                <label for="">Illness</label>
-                <el-input
-                    v-model="form_data.illness"
-                    placeholder="Enter illness"
-                    type="text"
-                    clearable
-                />
-            </div>
-            
-            <div class="w-[130px]">
-                <label for="">Date</label> <br>
-                <el-date-picker
-                    v-model="form_data.date"
-                    placeholder="Select date"
-                    type="date"
-                    clearable
-                    style="width: 100%;"
-                />
-            </div>
-        </div>
-
-        <!-- <div class="mt-2">
-            <label for="">Illness History</label>
-            <div class="border px-4 py-2 mt-1">
-                <div v-for="item in data.illness" class="flex justify-between gap-2">
-                    <div>{{ item.illness }}</div>
-                    <div>{{ item.date }}</div>
+        <template #header>
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center">
+                    <i class="fas fa-paw text-green-600 text-sm"></i>
+                </div>
+                <div>
+                    <h2 class="text-base font-bold text-gray-900">{{ form_data.id ? 'Update' : 'New' }} Rabbit</h2>
+                    <p class="text-xs text-gray-400">Fill in the rabbit details below</p>
                 </div>
             </div>
-        </div> -->
+        </template>
 
-        <div class="mt-4">
-            <el-upload
-                ref="imgUpload"
-                action="#"
-                :auto-upload="false"
-                class="upload-demo"
-                :on-change="onChangeImage"
-                accept="image/*"
-                :on-remove="handleRemove"
-                drag
-                list-type="picture"
-            >
-                <div class="flex justify-center">
-
-                    <i class="el-icon--upload w-[100px] fas fa-cloud-arrow-up"></i>
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Status</label>
+                    <el-select class="w-full" v-model="form_data.status" placeholder="Select status">
+                        <el-option v-for="s in ['For Breeding','For Bundle','For Sale','For Resting','Died','Kits']" :value="s" :label="s" :key="s" />
+                    </el-select>
+                    <p v-if="form_errors.value.status" class="text-red-500 text-xs mt-1">{{ form_errors.value.status[0] }}</p>
                 </div>
-
-                <div class="el-upload__text">
-                    Drop image here or <em>click to upload</em>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Gender</label>
+                    <el-select class="w-full" v-model="form_data.gender" placeholder="Select gender">
+                        <el-option value="Buck" label="Buck" />
+                        <el-option value="Doe" label="Doe" />
+                        <el-option value="Unknown" label="Unknown" />
+                    </el-select>
+                    <p v-if="form_errors.value.gender" class="text-red-500 text-xs mt-1">{{ form_errors.value.gender[0] }}</p>
                 </div>
+            </div>
 
-                <template #tip>
-                    <div class="el-upload__tip">
-                        image with a size less than 2.048mb
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Rabbit Breed</label>
+                <el-select class="w-full" v-model="form_data.breed" placeholder="Select breed" filterable>
+                    <el-option v-for="v in ['Californian','Lion Head','New Zealand','Teddy Rabbit']" :value="v" :label="v" :key="v" />
+                </el-select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">RFID <span class="text-red-500">*</span></label>
+                    <el-input v-model="form_data.rfid" placeholder="Enter RFID" clearable />
+                    <p v-if="form_errors.value.rfid" class="text-red-500 text-xs mt-1">{{ form_errors.value.rfid[0] }}</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Name <span class="text-red-500">*</span></label>
+                    <el-input v-model="form_data.name" placeholder="Enter name" clearable />
+                    <p v-if="form_errors.value.name" class="text-red-500 text-xs mt-1">{{ form_errors.value.name[0] }}</p>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Birthday</label>
+                <el-date-picker v-model="form_data.birth" placeholder="Select birthday" type="date" clearable style="width:100%" />
+                <p v-if="form_errors.value.birth" class="text-red-500 text-xs mt-1">{{ form_errors.value.birth[0] }}</p>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Note</label>
+                <el-input v-model="form_data.note" placeholder="Enter note" type="textarea" :rows="2" clearable />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Illness</label>
+                    <el-input v-model="form_data.illness" placeholder="Enter illness" clearable />
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Illness Date</label>
+                    <el-date-picker v-model="form_data.date" placeholder="Select date" type="date" clearable style="width:100%" />
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Photo</label>
+                <el-upload ref="imgUpload" action="#" :auto-upload="false" :on-change="onChangeImage"
+                    accept="image/*" :on-remove="handleRemove" drag list-type="picture">
+                    <div class="flex flex-col items-center py-5">
+                        <i class="fas fa-cloud-arrow-up text-3xl text-gray-300 mb-2"></i>
+                        <p class="text-sm text-gray-500">Drop image or <em class="text-green-600 not-italic font-medium">click to upload</em></p>
                     </div>
-                </template>
-            </el-upload>
-            <span
-                v-if="form_errors.value['images']"
-                class="text-red-600"
-            >{{form_errors.value['images'][0]}}</span>
+                </el-upload>
+                <p v-if="form_errors.value.images" class="text-red-500 text-xs mt-1">{{ form_errors.value.images[0] }}</p>
+            </div>
         </div>
-
-        
 
         <template #footer>
-            <span class="flex justify-end">
-                <el-button 
-                    type="warning" 
-                    @click="showModal = false" 
-                    plain
-                >Cancel</el-button>
-                <el-button 
-                    type="primary" 
-                    @click="onSubmit"
-                >{{form_data.id ? 'Update' : 'Save'}}</el-button>
-            </span>
+            <div class="flex justify-end gap-2">
+                <button @click="showModal = false" class="px-5 py-2 rounded-xl text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">Cancel</button>
+                <button @click="onSubmit" class="px-5 py-2 rounded-xl text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors flex items-center gap-2">
+                    <i class="fas fa-check text-xs"></i> {{ form_data.id ? 'Update' : 'Save' }}
+                </button>
+            </div>
         </template>
     </el-dialog>
 </template>
@@ -385,241 +252,81 @@
 import AuthLayout from '@/Layouts/AuthLayout.vue';
 import { onBeforeMount, reactive, ref } from 'vue';
 import axios from 'axios';
-const imgUpload =ref(null)
 
-    const pagination = reactive({
-        rfid: null,
-        page_size:10,
-        page:1,
-    })
-    
-    // const illness_form = reactive({
-    //     illness: null,
-    //     date: null,
-    // })
-    const pagination_total = ref(0)
-    const showModal = ref(false)
-    const data = reactive({value:[], rabbits:[], bucks:[], does:[], illness: []})
-    const form_errors = reactive({value:{}})
-    const form_data = reactive({
-        id:null,
-//        product_id: null,
-        breed: null,
-        name: null,
-        gender: null,
-        images:null,
-        birth:null,
-        note: null,
-        status: null,
-        // illness: '',
-        rabbit: null,
-        illness: null,
-        date: null
-    })
+const imgUpload = ref(null);
+const pagination = reactive({ rfid: null, page_size: 10, page: 1 });
+const pagination_total = ref(0);
+const showModal = ref(false);
+const data = reactive({ value: [], rabbits: [], bucks: [], does: [] });
+const form_errors = reactive({ value: {} });
+const form_data = reactive({ id: null, breed: null, name: null, gender: null, images: null, birth: null, note: null, status: null, rfid: null, illness: null, date: null });
 
+onBeforeMount(() => {
+    fetchData();
+    axios.get(route('product.rabbits')).then(res => { data.rabbits = res.data; });
+});
 
-    onBeforeMount(()=>{
-        fetchData()
+function onNew() {
+    form_errors.value = {};
+    Object.assign(form_data, { id: null, breed: null, name: null, gender: null, images: null, birth: null, note: null, status: null, rfid: null, illness: null, date: null });
+    if (imgUpload.value) imgUpload.value.clearFiles();
+    showModal.value = true;
+}
 
-        axios.get(route('product.rabbits'))
-            .then(res => {
-                data.rabbits = res.data
-            })
-    })
+function onEdit(row) {
+    form_errors.value = {};
+    Object.assign(form_data, { id: row.id, breed: row.product?.name, name: row.name, gender: row.gender, birth: row.birth, note: row.note, status: row.status, rfid: row.rfid, images: null, illness: null, date: null });
+    if (imgUpload.value) imgUpload.value.clearFiles();
+    showModal.value = true;
+}
 
-    function isPC(){
-        return window.innerWidth > 960
-    }
+function getStatusClass(status) {
+    if (status === 'For Sale') return 'bg-green-100 text-green-700';
+    if (status === 'For Breeding') return 'bg-blue-100 text-blue-700';
+    if (status === 'Died') return 'bg-red-100 text-red-600';
+    return 'bg-yellow-100 text-yellow-700';
+}
 
-    function onNew(){
-        form_errors.value ={}
+function onChangeImage(img) { form_data.images = img.raw; }
+function handleRemove() { form_data.images = null; }
 
-        form_data.id = null
-        form_data.breed = null
-        form_data.name = null
-        form_data.gender = null
-        form_data.images = null
-        form_data.birth = null        
-        form_data.note = null
-        form_data.status = null
-        form_data.rfid = null
+function fetchData() {
+    axios.get(route('rabbit.get', pagination)).then(res => {
+        data.value = res.data.data;
+        pagination_total.value = res.data.total;
+        pagination.rfid = null;
+    });
+    axios.get(route('rabbit.get-bucks')).then(res => { data.bucks = res.data; });
+    axios.get(route('rabbit.get-does')).then(res => { data.does = res.data; });
+}
 
-        // form_data.illness = ''
+function onSubmit() {
+    const url = form_data.id ? route('rabbit.update', form_data.id) : route('rabbit.store');
+    axios.post(url, form_data, { headers: { 'content-type': 'multipart/form-data' } })
+        .then(() => { fetchData(); showModal.value = false; })
+        .catch(err => { form_errors.value = err.response.data.errors; });
+}
 
-        form_data.illness = null
-        form_data.date = null
-        // data.illness = []
+function onDelete(id) {
+    axios.post(route('rabbit.delete', id)).then(fetchData);
+}
 
-        if (imgUpload.value)
-          imgUpload.value.clearFiles()
-        
-
-        showModal.value = true
-    }
-
-    function onEdit(row){
-        form_errors.value ={}
-        
-        form_data.id = row.id
-        form_data.breed = row.product?.name
-        form_data.name = row.name
-        form_data.gender = row.gender
-        form_data.birth = row.birth
-        form_data.note = row.note
-        form_data.status = row.status
-        form_data.rfid = row.rfid
-        form_data.images = null
-
-        // form_data.illness = row.illness
-
-        form_data.illness = null
-        form_data.date = null
-        // data.illness = []
-        // if (row.illness){
-        //     const illnesses = row.illness.split('|')
-        //     for (const i in illnesses) {
-        //         const col = illnesses[i].split('^')
-        //         if (col.length == 2)
-        //             data.illness.push({
-        //                 illness: col[0],
-        //                 date: col[1]
-        //             })
-        //     }
-        // }
-
-        if (imgUpload.value)
-            imgUpload.value.clearFiles();
-        
-        showModal.value = true
-    }
-
-    function getStatusTag(status) {
-        if (status == 'For Sale') return 'success'
-        if (status == 'For Breeding') return 'primary'
-        return 'warning'
-    }
-    
-    function onChangeImage(img){
-        form_data.images = img.raw
-    }
-
-    function handleRemove(){
-        form_data.images = null
-    }
-
-    function fetchData(){
-        axios.get(route('rabbit.get', pagination))
-            .then(res => {
-                data.value = res.data.data
-                pagination_total.value = res.data.total
-                pagination.rfid = null
-            })
-        axios.get(route('rabbit.get-bucks'))
-            .then(res => {
-                data.bucks = res.data
-            })
-        axios.get(route('rabbit.get-does'))
-            .then(res => {
-                data.does = res.data
-            })
-    }
-
-    function onSubmit(){
-        // if (illness_form.illness && illness_form.date){
-        //     form_data.illness = form_data.illness ? `${form_data.illness}|` : ''
-        //     form_data.illness += `${illness_form.illness}^${illness_form.date.toString().substring(0, 15)}`
-        // }
-        
-
-        const url = form_data.id ? route('rabbit.update', form_data.id) : route('rabbit.store')
-        
-        axios.post(url, form_data,{
-            headers: {
-                'content-type': 'multipart/form-data'
-            }
-        })
-            .then(() => {
-                fetchData()
-                showModal.value = false
-            })
-            .catch(err => {
-                form_errors.value = err.response.data.errors
-            })
-    }
-
-    function onDelete(id){
-        axios.post(route('rabbit.delete', id))
-            .then(() => {
-                fetchData()
-            })
-            .catch(err => {
-                console.log(err);
-            })
-    }
-
-    function getLastIllness(illness){
-        const illnesses = (illness ?? '').split('|')
-        let ill = null
-        for (const i in illnesses) {
-            ill = illnesses[i].split('^')[0]
-        }
-
-        return ill
-    }
-
-    function calculateAge(birthday) {
-        const bday = new Date(birthday)
-        const current_date = new Date()
-        const timediff = current_date - bday
-
-        const years = Math.floor(timediff / (1000 * 60 * 60 * 24 * 30 * 12));
-        if (years > 0) return `${years} year${years > 1 ? 's' : ''} old`
-
-        const months = Math.floor(timediff / (1000 * 60 * 60 * 24 * 30));
-        if (months > 0) return `${months} month${months > 1 ? 's' : ''} old`
-
-        const days = Math.floor(timediff / (1000 * 60 * 60 * 24));
-        return `${days} day${days > 1 ? 's' : ''} old`
-
-        // const birthdate = new Date(birthday);
-        // const currentDate = new Date();
-        // console.log(birthday);
-        // var age = currentDate.getFullYear() - birthdate.getFullYear();
-        // if (
-        //     birthdate.getMonth() > currentDate.getMonth() ||
-        //     (birthdate.getMonth() === currentDate.getMonth() && birthdate.getDate() > currentDate.getDate())
-        // )
-        //     age--;
-        // if (age > 0) return age + ' years old'
-
-        // console.log(birthdate.getMonth() , currentDate.getMonth());
-        // if (currentDate.getMonth() != birthdate.getMonth()){
-        //     var month = (11 - birthdate.getMonth()) + currentDate.getMonth()
-        //     if (birthdate.getDate() > currentDate.getDate() && currentDate.getFullYear() != birthdate.getFullYear())
-        //         month--
-        //     console.log(month, 'dslfhjdsf');
-        //     if (month > 0) return month + ' months old'
-        // }
-        // else {
-        //     if (currentDate.getFullYear() == birthdate.getFullYear() && currentDate.getDate() < birthdate.getDate()){
-        //         return currentDate.getDate() - birthdate.getDate() + ' days old'
-        //     }
-        //     else 
-        //         return (11 - birthdate.getMonth()) + currentDate.getMonth() + ' months old'
-        // }
-
-        // const fm = new Date(birthdate.getFullYear(), birthdate.getMonth() + 1, 0)
-        // const day = fm.getDate() - birthdate.getDate() + currentDate.getDate()
-        // if (day < 0) return null
-        // return day + ' days old';
-    }
-
-    
+function calculateAge(birthday) {
+    const diff = new Date() - new Date(birthday);
+    const years = Math.floor(diff / (1000 * 60 * 60 * 24 * 365));
+    if (years > 0) return `${years}y old`;
+    const months = Math.floor(diff / (1000 * 60 * 60 * 24 * 30));
+    if (months > 0) return `${months}mo old`;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    return `${days}d old`;
+}
 </script>
 
-<style>
-    .el-table__body-wrapper{
-        overflow: auto;
-        max-height: 55svh;
-    }
+<style scoped>
+:deep(.el-dialog) { border-radius: 1rem; }
+:deep(.el-dialog__header) { padding: 20px 20px 12px; border-bottom: 1px solid #f3f4f6; margin-right: 0; }
+:deep(.el-dialog__body) { padding: 20px; }
+:deep(.el-dialog__footer) { padding: 12px 20px 20px; border-top: 1px solid #f3f4f6; }
+:deep(.el-select) { width: 100%; }
+:deep(.el-table__body-wrapper) { overflow: auto; max-height: 55svh; }
 </style>
