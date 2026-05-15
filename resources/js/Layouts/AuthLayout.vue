@@ -10,7 +10,7 @@ import UpdateQuote from '@/Components/UpdateQuote.vue';
 import UpdateSettings from '@/Components/UpdateSettings.vue';
 
 const isDesktop = ref(window.innerWidth > 960);
-const showNav   = ref(window.innerWidth > 960);   // open by default on desktop, closed on mobile
+const showNav   = ref(window.innerWidth > 960);
 
 const showProfileModal  = ref(false);
 const showNotif         = ref(false);
@@ -20,16 +20,27 @@ const showNumberModal   = ref(false);
 const showQuoteModal    = ref(false);
 const showSettingsModal = ref(false);
 
+const notifRef = ref(null);
 const tasks = usePage().props.tasks;
 
 function onResize() {
     isDesktop.value = window.innerWidth > 960;
-    if (isDesktop.value) showNav.value = true;   // always open on desktop
-    else showNav.value = false;                  // always closed on resize to mobile
+    if (isDesktop.value) showNav.value = true;
+    else showNav.value = false;
+}
+
+function onClickOutsideNotif(e) {
+    if (showNotif.value && notifRef.value && !notifRef.value.contains(e.target)) {
+        showNotif.value = false;
+    }
 }
 
 window.addEventListener('resize', onResize);
-onBeforeUnmount(() => window.removeEventListener('resize', onResize));
+window.addEventListener('mousedown', onClickOutsideNotif);
+onBeforeUnmount(() => {
+    window.removeEventListener('resize', onResize);
+    window.removeEventListener('mousedown', onClickOutsideNotif);
+});
 
 function closeIfMobile() {
     if (!isDesktop.value) showNav.value = false;
@@ -220,48 +231,130 @@ function getName(name) {
 
                 <div class="flex items-center gap-3">
                     <!-- Bell -->
-                    <div class="relative">
-                        <button class="relative p-1.5 rounded-full hover:bg-green-700 transition-colors" @click="showNotif = !showNotif">
+                    <div class="relative" ref="notifRef">
+                        <button
+                            class="relative p-1.5 rounded-full hover:bg-green-700 transition-colors"
+                            @click="showNotif = !showNotif"
+                        >
                             <i class="fas fa-bell text-base"></i>
-                            <span v-if="tasks.length > 0" class="absolute top-0.5 right-0.5 size-2 bg-red-500 rounded-full"></span>
+                            <span v-if="tasks.length > 0" class="absolute top-0.5 right-0.5 size-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                                {{ tasks.length > 9 ? '9+' : tasks.length }}
+                            </span>
                         </button>
-                        <div v-if="showNotif" class="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-100 text-gray-800 z-50 overflow-hidden">
-                            <div class="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700">Notifications</div>
-                            <div class="max-h-64 overflow-y-auto">
-                                <template v-if="tasks.length > 0">
-                                    <div v-for="task in tasks" :key="task.id" class="px-4 py-3 border-b border-gray-50 hover:bg-gray-50">
-                                        <div class="font-medium text-sm">{{ task.title }}</div>
-                                        <div class="text-xs text-gray-500 mt-0.5">{{ task.desc }}</div>
+
+                        <transition name="notif-drop">
+                            <div
+                                v-if="showNotif"
+                                class="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 text-gray-800 z-50 overflow-hidden"
+                            >
+                                <!-- Header -->
+                                <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <i class="fas fa-bell text-green-500 text-sm"></i>
+                                        <span class="font-bold text-sm text-gray-800">Notifications</span>
                                     </div>
-                                </template>
-                                <template v-else>
-                                    <div class="px-4 py-6 text-center text-sm text-gray-400">No tasks scheduled yet.</div>
-                                </template>
+                                    <span v-if="tasks.length > 0" class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                                        {{ tasks.length }} pending
+                                    </span>
+                                </div>
+
+                                <!-- Task list -->
+                                <div class="max-h-72 overflow-y-auto divide-y divide-gray-50">
+                                    <template v-if="tasks.length > 0">
+                                        <div
+                                            v-for="task in tasks"
+                                            :key="task.id"
+                                            class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                                        >
+                                            <div class="w-8 h-8 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                <i class="fas fa-heart-pulse text-green-600 text-xs"></i>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <p class="font-semibold text-sm text-gray-800 truncate">{{ task.title }}</p>
+                                                <p class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ task.desc }}</p>
+                                                <p v-if="task.due_date" class="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
+                                                    <i class="fas fa-calendar text-[9px]"></i>
+                                                    {{ task.due_date?.substring(0, 10) }}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <template v-else>
+                                        <div class="flex flex-col items-center justify-center py-10 text-gray-400">
+                                            <i class="fas fa-bell-slash text-3xl mb-2 opacity-30"></i>
+                                            <p class="text-sm font-medium">No tasks scheduled yet.</p>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <!-- Footer link -->
+                                <div v-if="tasks.length > 0" class="border-t border-gray-100 px-4 py-2.5">
+                                    <a :href="route('task.index')" class="text-xs text-green-600 hover:text-green-700 font-semibold flex items-center gap-1 transition-colors">
+                                        View all tasks <i class="fas fa-arrow-right text-[10px]"></i>
+                                    </a>
+                                </div>
                             </div>
-                        </div>
+                        </transition>
                     </div>
 
                     <!-- User menu -->
-                    <el-dropdown>
+                    <el-dropdown trigger="click" placement="bottom-end">
                         <button class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-green-700 transition-colors text-white">
-                            <div class="size-7 rounded-full bg-green-400 flex items-center justify-center text-xs font-bold">
+                            <div class="size-8 rounded-full bg-white/20 border-2 border-white/40 flex items-center justify-center text-xs font-bold text-white">
                                 {{ $page.props.auth?.user?.name?.charAt(0)?.toUpperCase() ?? 'A' }}
                             </div>
                             <i class="fas fa-chevron-down text-xs opacity-70"></i>
                         </button>
                         <template #dropdown>
-                            <el-dropdown-menu>
-                                <el-dropdown-item @click="showProfileModal = true">
-                                    <i class="fas fa-user mr-2"></i> Update Profile
-                                </el-dropdown-item>
-                                <el-dropdown-item @click="showPasswordModal = true">
-                                    <i class="fas fa-lock mr-2"></i> Update Password
-                                </el-dropdown-item>
-                                <el-dropdown-item @click="logout" divided>
-                                    <i class="fas fa-power-off mr-2 text-red-500"></i>
-                                    <span class="text-red-500">Logout</span>
-                                </el-dropdown-item>
-                            </el-dropdown-menu>
+                            <div class="py-1 min-w-[200px]">
+                                <!-- User info header -->
+                                <div class="px-4 py-3 border-b border-gray-100">
+                                    <div class="flex items-center gap-3">
+                                        <div class="size-9 rounded-xl bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm flex-shrink-0">
+                                            {{ $page.props.auth?.user?.name?.charAt(0)?.toUpperCase() ?? 'A' }}
+                                        </div>
+                                        <div class="min-w-0">
+                                            <p class="font-semibold text-sm text-gray-800 truncate">{{ $page.props.auth?.user?.name }}</p>
+                                            <p class="text-xs text-gray-400 truncate">{{ $page.props.auth?.user?.email }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Menu items -->
+                                <div class="py-1">
+                                    <button
+                                        @click="showProfileModal = true"
+                                        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-green-700 transition-colors text-left"
+                                    >
+                                        <div class="size-7 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
+                                            <i class="fas fa-user text-green-600 text-xs"></i>
+                                        </div>
+                                        <span class="font-medium">Update Profile</span>
+                                    </button>
+                                    <button
+                                        @click="showPasswordModal = true"
+                                        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-700 transition-colors text-left"
+                                    >
+                                        <div class="size-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                                            <i class="fas fa-lock text-blue-600 text-xs"></i>
+                                        </div>
+                                        <span class="font-medium">Update Password</span>
+                                    </button>
+                                </div>
+
+                                <!-- Logout -->
+                                <div class="border-t border-gray-100 py-1">
+                                    <button
+                                        @click="logout"
+                                        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
+                                    >
+                                        <div class="size-7 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+                                            <i class="fas fa-power-off text-red-500 text-xs"></i>
+                                        </div>
+                                        <span class="font-medium">Logout</span>
+                                    </button>
+                                </div>
+                            </div>
                         </template>
                     </el-dropdown>
                 </div>
@@ -305,5 +398,21 @@ function getName(name) {
 .fade-enter-from,
 .fade-leave-to {
     opacity: 0;
+}
+
+/* Notification dropdown */
+.notif-drop-enter-active,
+.notif-drop-leave-active {
+    transition: opacity 180ms ease, transform 180ms ease;
+}
+.notif-drop-enter-from,
+.notif-drop-leave-to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+}
+.notif-drop-enter-to,
+.notif-drop-leave-from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
 }
 </style>

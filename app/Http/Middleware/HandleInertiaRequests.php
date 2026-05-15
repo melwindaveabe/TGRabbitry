@@ -32,8 +32,9 @@ class HandleInertiaRequests extends Middleware
         $tasks = [];
         if (auth()->user() && auth()->user()->admin == 1){
             $tasks = \App\Models\Task::select(['id', 'title', 'desc', 'due_date'])
-                ->whereDate('due_date', now())
+                ->whereDate('due_date', '<=', now())
                 ->whereNull('completed_at')
+                ->orderBy('due_date')
                 ->get();
         }
 
