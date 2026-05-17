@@ -4,12 +4,12 @@
             <div class="max-w-3xl mx-auto">
 
                 <!-- Back link -->
-                <button @click="$inertia.back()" class="flex items-center gap-1 text-sm text-gray-500 hover:text-green-600 transition-colors mb-6">
+                <Link :href="route('product.show', product.id)" class="flex items-center gap-1 text-sm text-gray-500 hover:text-green-600 transition-colors mb-6">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
                     </svg>
                     Back to product
-                </button>
+                </Link>
 
                 <!-- Header -->
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -144,6 +144,7 @@
 
 <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
+import { Link } from '@inertiajs/vue3';
 import { computed, ref, onMounted } from 'vue';
 import ImagePreview from '@/Components/ImagePreview.vue';
 
